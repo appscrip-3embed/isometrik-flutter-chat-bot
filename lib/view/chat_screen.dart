@@ -1570,12 +1570,12 @@ class _ChatScreenBody extends StatelessWidget {
                 text: action.buttonText,
                 onTap: isApiLoading ? () {} : () async {
                   
-              final result = await AddCardBottomSheet.show(context);
-                if (result != null) {
-                  debugPrint('PM: ${result['paymentMethodId']} '
-                      '${result['brand']} **** ${result['last4']}');
-                      onSendMessage('Card added successfully last 4 digits: ${result['last4']}');
-                }
+              // final result = await AddCardBottomSheet.show(context);
+              //   if (result != null) {
+              //     debugPrint('PM: ${result['paymentMethodId']} '
+              //         '${result['brand']} **** ${result['last4']}');
+              //         onSendMessage('Card added successfully last 4 digits: ${result['last4']}');
+              //   }
                 },
               );
             },
