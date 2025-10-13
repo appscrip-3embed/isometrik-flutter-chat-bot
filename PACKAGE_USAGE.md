@@ -23,7 +23,7 @@ Make sure your consuming project includes these dependencies in `pubspec.yaml`:
 dependencies:
   flutter:
     sdk: flutter
-  speech_to_text: ^6.6.0  # Required for speech recognition
+  speech_to_text: ^7.3.0  # Required for speech recognition
   flutter_bloc: ^8.1.3
   bloc: ^8.1.2
   shared_preferences: ^2.2.2
@@ -152,7 +152,7 @@ class _MyWidgetState extends State<MyWidget> {
 ### Common Issues
 
 1. **Compilation Errors with Speech Service**
-   - Ensure `speech_to_text: ^6.6.0` is in your dependencies
+   - Ensure `speech_to_text: ^7.3.0` is in your dependencies
    - Run `flutter pub get` to resolve dependencies
    - Clean and rebuild: `flutter clean && flutter pub get`
 
