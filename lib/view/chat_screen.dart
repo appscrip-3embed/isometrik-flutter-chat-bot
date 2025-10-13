@@ -62,7 +62,6 @@ class _ChatScreenState extends State<ChatScreen> {
   Set<String> _selectedOptionMessages = {};
   String? _pendingMessage;
   
-  double _textFieldHeight = 50.0; // Add height state variable
   List<ChatWidget> _latestActionWidgets = []; // Track latest action widgets
   int _totalCartCount = 0; // Track total cart count
   List<ChatMessage> messages = [];
@@ -148,7 +147,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
       _pendingMessage = text;
-      _textFieldHeight = 50.0; // Reset to default height when sending message
     });
 
     _messageController.clear();
@@ -160,12 +158,6 @@ class _ChatScreenState extends State<ChatScreen> {
   void _clearPendingMessage() {
     setState(() {
       _pendingMessage = null;
-    });
-  }
-
-  void _updateTextFieldHeight(double newHeight) {
-    setState(() {
-      _textFieldHeight = newHeight;
     });
   }
 
@@ -271,11 +263,11 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         // Check if stores, products, cart, etc. are present
-        bool hasStores = false;//storesWidget != null;
-        bool hasProducts = false;//productsWidget != null;
+        bool hasStores = storesWidget != null;
+        bool hasProducts = productsWidget != null;
         bool hasCart = cartWidget != null;
-        bool hasChooseAddress = false;//chooseAddressWidget != null;
-        bool hasChooseCard = false;//chooseCardWidget != null;
+        bool hasChooseAddress = chooseAddressWidget != null;
+        bool hasChooseCard = chooseCardWidget != null;
         bool hasOrderSummary = orderSummaryWidget != null;
         bool hasOrderConfirmed = orderConfirmedWidget != null;
 
@@ -554,6 +546,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       _cartBloc = context.read<CartBloc>();
       _launchBloc = LaunchBloc();
+      _cartBloc.add(CartFetchRequested(needToShowLoader: false));
       
     }else {
 
@@ -636,11 +629,24 @@ class _ChatScreenState extends State<ChatScreen> {
     // Start initialization in background - don't block UI
     try {
       _isSpeechAvailable = await _speechService.initialize();
-      if (!_isSpeechAvailable) {
-        debugPrint('Speech recognition not available');
-      } else {
+      // if (!_isSpeechAvailable) {
+      //   debugPrint('Speech recognition not available');
+      // } else {
         debugPrint('Speech service initialized successfully');
-      }
+        
+        // Set up real-time text update callback
+        _speechService.setOnTextUpdateCallback((String recognizedText) {
+          if (mounted) {
+            setState(() {
+              print("recognizedText: $_isRecording");
+              _messageController.text = recognizedText;
+              if (_isRecording == false && recognizedText.isNotEmpty) {
+                _messageController.clear();
+              }
+            });
+          }
+        });
+      // }
     } catch (e) {
       debugPrint('Failed to initialize speech service: $e');
       _isSpeechAvailable = false;
@@ -658,6 +664,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // IMMEDIATE response - no async operations blocking UI
     setState(() {
       _isRecording = true;
+      _messageController.clear(); // Clear text field when starting recording
     });
 
     // Ultra-fast start - fire and forget approach
@@ -695,38 +702,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
       final String recognizedText = _speechService.currentRecognizedText;
 
-      if (recognizedText.trim().isNotEmpty) {
-        // Set the recognized text to the text field
-        _messageController.text = recognizedText.trim();
-        // ADDED For Text Field Height
-         final textSpan = TextSpan(
-                                      text:
-                                          _messageController.text.isEmpty
-                                              ? 'How can zAIn help you today?'
-                                              : _messageController.text,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        height: 1.4,
-                                        color: Color(0xFF242424),
-                                      ),
-                                    );
-                                    final textPainter = TextPainter(
-                                      text: textSpan,
-                                      textDirection: TextDirection.ltr,
-                                      maxLines: null,
-                                    );
-                                    textPainter.layout(
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width -
-                                          160,
-                                    );
-
-                                    final newHeight = (textPainter.height + 20)
-                                        .clamp(50.0, 550.0);
-                                    _updateTextFieldHeight(newHeight);
-      } else {
+      if (recognizedText.trim().isEmpty) {
         BlackToastView.show(context, 'No speech detected. Please try again.');
       }
+      // Text is already set in real-time via callback, no need to set it again here
     } catch (e) {
       debugPrint('Failed to stop speech recording: $e');
       setState(() {
@@ -749,6 +728,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       setState(() {
         _isRecording = false;
+         _messageController.clear(); // Clear text field when starting recording
       });
     } catch (e) {
       debugPrint('Failed to cancel speech recording: $e');
@@ -779,6 +759,9 @@ class _ChatScreenState extends State<ChatScreen> {
       _scrollController.dispose();
       _messageFocusNode.dispose();
       _launchBloc.close();
+      
+      // Clear speech service callback
+      _speechService.clearOnTextUpdateCallback();
     }
 
     // OrderService().clearCallback();
@@ -871,8 +854,6 @@ class _ChatScreenState extends State<ChatScreen> {
       onClearPendingMessage: _clearPendingMessage,
       sessionId: sessionId,
       // Pass session ID
-      textFieldHeight: _textFieldHeight,
-      onUpdateTextFieldHeight: _updateTextFieldHeight,
       latestActionWidgets: _latestActionWidgets,
       onHideStoreCards: _hideStoreCards,
       // Add the callback
@@ -1106,8 +1087,6 @@ class _ChatScreenBody extends StatelessWidget {
   final String? pendingMessage;
   final VoidCallback onClearPendingMessage;
   final String sessionId;
-  final double textFieldHeight;
-  final Function(double) onUpdateTextFieldHeight;
   final List<ChatWidget> latestActionWidgets;
   final VoidCallback onHideStoreCards; // Add callback to hide store cards
   final Function(int) onUpdateCartCount; // Add callback to update cart count
@@ -1144,8 +1123,6 @@ class _ChatScreenBody extends StatelessWidget {
     required this.pendingMessage,
     required this.onClearPendingMessage,
     required this.sessionId,
-    required this.textFieldHeight,
-    required this.onUpdateTextFieldHeight,
     required this.latestActionWidgets,
     required this.onHideStoreCards, // Add the callback parameter
     required this.onUpdateCartCount, // Add the callback parameter
@@ -1355,7 +1332,7 @@ class _ChatScreenBody extends StatelessWidget {
                          
                       else ...[
                         _buildInputArea(context),
-                        if (isRecording) _buildInputRecordingArea(context),
+                        // if (isRecording) _buildInputRecordingArea(context),
                       ]
                     ],
                   ),
@@ -1390,13 +1367,26 @@ class _ChatScreenBody extends StatelessWidget {
           height: 40,
           fit: BoxFit.cover,
         ),
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          // Navigator.push(
+          //   context,
+          //   MaterialPageRoute(
+          //     builder: (context) => const ChatHistoryScreen(),
+          //   ),
+          // );
+          print('ChatScreen: $totalCartCount');
+          final result = await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const ChatHistoryScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => ChatHistoryScreen()),
           );
+
+          if (result != null && result is Map) {
+            final action = result['action'];
+            
+            if (action == 'new_chat_selected') {
+              onRestartChatAPI();
+            }
+          }
         },
       ),
       title: Row(
@@ -1520,7 +1510,24 @@ class _ChatScreenBody extends StatelessWidget {
                             isApiLoading
                                 ? null
                                 : () {
-                                  Navigator.push(
+                                  if (isFromHistory == true) {
+                                    Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => BlocProvider(
+                                            create: (context) => CartBloc(),
+                                            child: CartScreen(
+                                              needToEndThisChat: isFromHistory,
+                                              onCheckout: (message) {
+                                                onSendMessage(message);
+                                              },
+                                            ),
+                                          ),
+                                    ),
+                                  );
+                                  }else {
+                                    Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder:
@@ -1535,6 +1542,7 @@ class _ChatScreenBody extends StatelessWidget {
                                           ),
                                     ),
                                   );
+                                  }
                                 },
                       ),
                     IconButton(
@@ -1582,6 +1590,85 @@ class _ChatScreenBody extends StatelessWidget {
       centerTitle: false, // Align title to the left
       titleSpacing: 16, // Add left padding for proper alignment
       actions: [
+        // IconButton(
+        //                 icon: Opacity(
+        //                   opacity: 1.0,
+        //                   child: Stack(
+        //                     children: [
+        //                       SvgPicture.asset(
+        //                         AssetPath.get('images/ic_cart.svg'),
+        //                         width: 40,
+        //                         height: 40,
+        //                       ),
+        //                       if ( _getTotalCartCount() > 0)
+        //                         Positioned(
+        //                           right: 0,
+        //                           top: 0,
+        //                           child: Container(
+        //                             padding: const EdgeInsets.symmetric(
+        //                               horizontal: 4,
+        //                               vertical: 2,
+        //                             ),
+        //                             decoration: BoxDecoration(
+        //                               color: const Color(0xFF6B46C1),
+        //                               // Purple color
+        //                               borderRadius: BorderRadius.circular(10),
+        //                             ),
+        //                             constraints: const BoxConstraints(
+        //                               minWidth: 20,
+        //                               minHeight: 20,
+        //                             ),
+        //                             child: Text(
+        //                                   (_getTotalCartCount())
+        //                                   .toString(),
+        //                               style: const TextStyle(
+        //                                 color: Colors.white,
+        //                                 fontSize: 12,
+        //                                 fontWeight: FontWeight.bold,
+        //                               ),
+        //                               textAlign: TextAlign.center,
+        //                             ),
+        //                           ),
+        //                         ),
+        //                     ],
+        //                   ),
+        //                 ),
+        //                 onPressed:() {
+        //                           if (isFromHistory == true) {
+        //                             Navigator.push(
+        //                             context,
+        //                             MaterialPageRoute(
+        //                               builder:
+        //                                   (context) => BlocProvider(
+        //                                     create: (context) => CartBloc(),
+        //                                     child: CartScreen(
+        //                                       needToEndThisChat: isFromHistory,
+        //                                       onCheckout: (message) {
+        //                                         onSendMessage(message);
+        //                                       },
+        //                                     ),
+        //                                   ),
+        //                             ),
+        //                           );
+        //                           }else {
+        //                             Navigator.push(
+        //                             context,
+        //                             MaterialPageRoute(
+        //                               builder:
+        //                                   (context) => BlocProvider(
+        //                                     create: (context) => CartBloc(),
+        //                                     child: CartScreen(
+        //                                       needToEndThisChat: needToEndThisChat,
+        //                                       onCheckout: (message) {
+        //                                         onSendMessage(message);
+        //                                       },
+        //                                     ),
+        //                                   ),
+        //                             ),
+        //                           );
+        //                           }
+        //                         },
+        //               ),
         IconButton(
           icon: SvgPicture.asset(
             AssetPath.get('images/ic_close.svg'),
@@ -2668,49 +2755,44 @@ class _ChatScreenBody extends StatelessWidget {
                 // Stack(
                 //   children: [
                 Center(
-                  child: ConstrainedBox(
+                  child: Container(
                     constraints: BoxConstraints(
                       minHeight: 64,
-                      maxHeight: 570, // Allow up to 550 + 20 padding
+                      maxHeight: 200, // Maximum height for the input container
                     ),
-                    child: Container(
-                      height: textFieldHeight + 20,
-                      // Dynamic height based on text field
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color:
-                              isRecording
-                                  ? Colors.transparent
-                                  : Color(0xFFE9DFFB),
-                          width: 1,
-                        ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Color(0xFFE9DFFB),
+                        width: 1,
                       ),
-                      child: Padding(
-                        // padding: const EdgeInsets.symmetric(horizontal: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 12,vertical: 20),// ADDED For Text Field Height
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Container(
-                                height: textFieldHeight,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: 180, // Max height for scrollable text
+                              ),
+                              child: SingleChildScrollView(
                                 child: TextField(
                                   autofocus: false,
                                   controller: messageController,
                                   focusNode: messageFocusNode,
                                   enabled: !isApiLoading,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
+                                  textCapitalization: TextCapitalization.sentences,
                                   maxLines: null,
                                   minLines: 1,
                                   style: AppTextStyles.chatInput.copyWith(
                                     color: const Color(0xFF242424),
                                   ),
                                   decoration: InputDecoration(
-                                    hintText: 'How can zAIn help you today?',
+                                    hintText: isRecording ? 'Listening...' : 'How can zAIn help you today?',
                                     border: InputBorder.none,
                                     enabledBorder: InputBorder.none,
                                     focusedBorder: InputBorder.none,
@@ -2720,54 +2802,80 @@ class _ChatScreenBody extends StatelessWidget {
                                     hintStyle: AppTextStyles.chatInput.copyWith(
                                       color: Colors.grey,
                                     ),
-                                    isCollapsed: true,
-                                    contentPadding: EdgeInsets.zero,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(vertical: 8),
                                   ),
-                                  onChanged: (text) {
-                                    // Calculate new height based on text content
-                                    final textSpan = TextSpan(
-                                      text:
-                                          text.isEmpty
-                                              ? 'How can zAIn help you today?'
-                                              : text,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        height: 1.4,
-                                        color: Color(0xFF242424),
-                                      ),
-                                    );
-                                    final textPainter = TextPainter(
-                                      text: textSpan,
-                                      textDirection: TextDirection.ltr,
-                                      maxLines: null,
-                                    );
-                                    textPainter.layout(
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width -
-                                          160,
-                                    );
-
-                                    final newHeight = (textPainter.height + 20)
-                                        .clamp(50.0, 550.0);
-                                    onUpdateTextFieldHeight(newHeight);
-                                  },
-                                  onSubmitted:
-                                      isApiLoading
-                                          ? null
-                                          : (text) {
-                                            onSendMessage(text);
-                                            Future.delayed(
-                                              const Duration(milliseconds: 100),
-                                              () {
-                                                onScrollToBottom();
-                                              },
-                                            );
-                                          },
+                                  onSubmitted: isApiLoading
+                                      ? null
+                                      : (text) {
+                                          onSendMessage(text);
+                                          Future.delayed(
+                                            const Duration(milliseconds: 100),
+                                            () {
+                                              onScrollToBottom();
+                                            },
+                                          );
+                                        },
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          // Speech button - Single tap to start/stop recording
+                          if (isRecording) ...[
+                            Opacity(
+                              opacity: isApiLoading ? 0.4 : 1.0,
+                              child: GestureDetector(
+                                onTap:
+                                    isApiLoading
+                                        ? null
+                                        : () async {
+                                          await onCancelSpeechRecording();
+                                        },
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  child: SvgPicture.asset(
+                                    AssetPath.get('images/ic_RecClose.svg'),
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 10),
-                            // Speech button - Single tap to start/stop recording
+                            // Send button
+                            Opacity(
+                              opacity: isApiLoading ? 0.4 : 1.0,
+                              child: GestureDetector(
+                                onTap:
+                                    isApiLoading
+                                        ? null
+                                        : () async {
+                                          await onStopSpeechRecording();
+                                          onSendMessage(messageController.text);
+                                          if (messageController.text
+                                              .trim()
+                                              .isNotEmpty) {
+                                            FocusScope.of(
+                                              context,
+                                            ).requestFocus(messageFocusNode);
+                                          }
+                                          Future.delayed(
+                                            const Duration(milliseconds: 100),
+                                            () {
+                                              onScrollToBottom();
+                                            },
+                                          );
+                                        },
+                                child: SizedBox(
+                                  width: 34,
+                                  height: 34,
+                                  child: SvgPicture.asset(
+                                    AssetPath.get('images/ic_sendImg.svg'),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ] else ...[
                             Opacity(
                               opacity: isApiLoading ? 0.4 : 1.0,
                               child: GestureDetector(
@@ -2826,7 +2934,7 @@ class _ChatScreenBody extends StatelessWidget {
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -2839,124 +2947,124 @@ class _ChatScreenBody extends StatelessWidget {
     );
   }
 
-  Widget _buildInputRecordingArea(BuildContext context) {
-    return BlocBuilder<ChatBloc, ChatState>(
-      builder: (context, state) {
-        bool isApiLoading = state is ChatLoading;
+  // Widget _buildInputRecordingArea(BuildContext context) {
+  //   return BlocBuilder<ChatBloc, ChatState>(
+  //     builder: (context, state) {
+  //       bool isApiLoading = state is ChatLoading;
 
-        return Container(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 10,
-            bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-          ),
-          color: Colors.white,
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Input field container
-                Stack(
-                  children: [
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: 64,
-                          maxHeight: 570, // Allow up to 550 + 20 padding
-                        ),
-                        child: Container(
-                          height: textFieldHeight + 20,
-                          // Dynamic height based on text field
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Color(0xFFE9DFFB),
-                              width: 1,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Opacity(
-                                  opacity: isApiLoading ? 0.4 : 1.0,
-                                  child: GestureDetector(
-                                    onTap:
-                                        isApiLoading
-                                            ? null
-                                            : () async {
-                                              await onCancelSpeechRecording();
-                                            },
-                                    child: SizedBox(
-                                      width: 34,
-                                      height: 34,
-                                      child: SvgPicture.asset(
-                                        AssetPath.get('images/ic_RecClose.svg'),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                SvgPicture.asset(
-                                  AssetPath.get('images/ic_Listening.svg'),
-                                ),
-                                Opacity(
-                                  opacity: isApiLoading ? 0.4 : 1.0,
-                                  child: GestureDetector(
-                                    onTap:
-                                        isApiLoading
-                                            ? null
-                                            : () async {
-                                              await onStopSpeechRecording();
-                                              // onSendMessage(
-                                              //   messageController.text,
-                                              // );
-                                              // if (messageController.text
-                                              //     .trim()
-                                              //     .isNotEmpty) {
-                                              //   FocusScope.of(
-                                              //     context,
-                                              //   ).requestFocus(
-                                              //     messageFocusNode,
-                                              //   );
-                                              // }
-                                              // Future.delayed(
-                                              //   const Duration(
-                                              //     milliseconds: 100,
-                                              //   ),
-                                              //   () {
-                                              //     onScrollToBottom();
-                                              //   },
-                                              // );
-                                            },
-                                    child: SizedBox(
-                                      width: 34,
-                                      height: 34,
-                                      child: SvgPicture.asset(
-                                        AssetPath.get('images/ic_sendImg.svg'),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  //       return Container(
+  //         padding: EdgeInsets.only(
+  //           left: 16,
+  //           right: 16,
+  //           top: 10,
+  //           bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+  //         ),
+  //         color: Colors.white,
+  //         child: SafeArea(
+  //           top: false,
+  //           child: Column(
+  //             mainAxisSize: MainAxisSize.min,
+  //             children: [
+  //               // Input field container
+  //               Stack(
+  //                 children: [
+  //                   Center(
+  //                     child: ConstrainedBox(
+  //                       constraints: BoxConstraints(
+  //                         minHeight: 64,
+  //                         maxHeight: 570, // Allow up to 550 + 20 padding
+  //                       ),
+  //                       child: Container(
+  //                         height: textFieldHeight + 20,
+  //                         // Dynamic height based on text field
+  //                         decoration: BoxDecoration(
+  //                           color: Colors.white,
+  //                           borderRadius: BorderRadius.circular(16),
+  //                           border: Border.all(
+  //                             color: Color(0xFFE9DFFB),
+  //                             width: 1,
+  //                           ),
+  //                         ),
+  //                         child: Padding(
+  //                           padding: const EdgeInsets.symmetric(horizontal: 12),
+  //                           child: Row(
+  //                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //                             crossAxisAlignment: CrossAxisAlignment.center,
+  //                             children: [
+  //                               Opacity(
+  //                                 opacity: isApiLoading ? 0.4 : 1.0,
+  //                                 child: GestureDetector(
+  //                                   onTap:
+  //                                       isApiLoading
+  //                                           ? null
+  //                                           : () async {
+  //                                             await onCancelSpeechRecording();
+  //                                           },
+  //                                   child: SizedBox(
+  //                                     width: 34,
+  //                                     height: 34,
+  //                                     child: SvgPicture.asset(
+  //                                       AssetPath.get('images/ic_RecClose.svg'),
+  //                                     ),
+  //                                   ),
+  //                                 ),
+  //                               ),
+  //                               SvgPicture.asset(
+  //                                 AssetPath.get('images/ic_Listening.svg'),
+  //                               ),
+  //                               Opacity(
+  //                                 opacity: isApiLoading ? 0.4 : 1.0,
+  //                                 child: GestureDetector(
+  //                                   onTap:
+  //                                       isApiLoading
+  //                                           ? null
+  //                                           : () async {
+  //                                             await onStopSpeechRecording();
+  //                                             // onSendMessage(
+  //                                             //   messageController.text,
+  //                                             // );
+  //                                             // if (messageController.text
+  //                                             //     .trim()
+  //                                             //     .isNotEmpty) {
+  //                                             //   FocusScope.of(
+  //                                             //     context,
+  //                                             //   ).requestFocus(
+  //                                             //     messageFocusNode,
+  //                                             //   );
+  //                                             // }
+  //                                             // Future.delayed(
+  //                                             //   const Duration(
+  //                                             //     milliseconds: 100,
+  //                                             //   ),
+  //                                             //   () {
+  //                                             //     onScrollToBottom();
+  //                                             //   },
+  //                                             // );
+  //                                           },
+  //                                   child: SizedBox(
+  //                                     width: 34,
+  //                                     height: 34,
+  //                                     child: SvgPicture.asset(
+  //                                       AssetPath.get('images/ic_sendImg.svg'),
+  //                                     ),
+  //                                   ),
+  //                                 ),
+  //                               ),
+  //                             ],
+  //                           ),
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
 
   Widget _buildStoreCards(List<Store> stores, ChatWidget? storesWidget) {
     return ListView.separated(
@@ -2973,6 +3081,7 @@ class _ChatScreenBody extends StatelessWidget {
           storesWidget: storesWidget,
           index: index,
           cartData: cartBloc.cartData,
+          isFromChatHistory: isFromHistory,
           onAddToCart: (message, product, store, quantity) {
             onSendMessage(message);
           },
@@ -3587,7 +3696,7 @@ class _ChatScreenBody extends StatelessWidget {
     ChatWidget? productsWidget,
   ) {
     return Container(
-      height: 222,
+      height: isFromHistory ? 185 : 222,
       // color: Colors.red,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
@@ -3624,7 +3733,11 @@ class _ChatScreenBody extends StatelessWidget {
             instock: product.instock ?? true,
             storeIsOpen: product.storeIsOpen ?? true,
             storeType: product.storeTypeId ?? -111,
+            isFromChatHistory: isFromHistory,
             onClick: () {
+              if (isFromHistory) {
+                return;
+              }
               if (productsWidget != null) {
                 final Map<String, dynamic>? productJson = productsWidget
                     .getRawProduct(index);
@@ -4110,12 +4223,13 @@ class _ChatScreenBody extends StatelessWidget {
   }
 
   Widget _buildCartWidget(List<WidgetAction> cartItems) {
-    return CartWidget(cartItems: cartItems);
+    return CartWidget(cartItems: cartItems, isFromChatHistory: isFromHistory);
   }
 
   Widget _buildChooseAddressWidget(List<AddressOption> addressOptions) {
     return ChooseAddressWidget(
       addressOptions: addressOptions,
+      isFromChatHistory: isFromHistory,
       onAddressSelected: (selectedAddress) {
         // Handle address selection
         print(
@@ -4132,6 +4246,7 @@ class _ChatScreenBody extends StatelessWidget {
   Widget _buildChooseCardWidget(List<CardOption> cardOptions) {
     return ChooseCardWidget(
       cardOptions: cardOptions,
+      isFromChatHistory: isFromHistory,
       onCardSelected: (selectedCard) {
         // Handle card selection
         print('Selected card: ${selectedCard.title}');
@@ -4144,7 +4259,7 @@ class _ChatScreenBody extends StatelessWidget {
   }
 
   Widget _buildOrderSummaryWidget(List<WidgetAction> orderSummaryItems) {
-    return OrderSummaryWidget(orderItems: orderSummaryItems);
+    return OrderSummaryWidget(orderItems: orderSummaryItems, isFromChatHistory: isFromHistory);
   }
 
   Widget _buildOrderConfirmedWidget(ChatWidget orderConfirmedWidget) {

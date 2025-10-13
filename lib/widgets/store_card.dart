@@ -21,6 +21,7 @@ class StoreCard extends StatelessWidget {
   final List<UniversalCartData>? cartData; // Cart data from getCart API
   final Function(chat.Product, chat.Store, int, bool)?
   onQuantityChanged; // Callback for quantity changes
+  final bool isFromChatHistory;
 
   StoreCard({
     super.key,
@@ -34,6 +35,7 @@ class StoreCard extends StatelessWidget {
     this.onAddToCartRequested, // Add the new parameter
     this.cartData, // Add cart data parameter
     this.onQuantityChanged, // Add quantity change callback
+    this.isFromChatHistory = false,
   });
 
   @override
@@ -207,11 +209,13 @@ class StoreCard extends StatelessWidget {
                         // Pass cart data
                         onQuantityChanged:
                             onQuantityChanged, // Pass quantity change callback
+                        isFromChatHistory: isFromChatHistory,
                       ),
                   separatorBuilder: (_, __) => const SizedBox(width: 10),
                   itemCount: store.products.length,
                 ),
               ),
+              if (isFromChatHistory == false) ...[
             const SizedBox(height: 15),
             GestureDetector(
               onTap: () {
@@ -222,6 +226,7 @@ class StoreCard extends StatelessWidget {
                 if (storesWidget != null) {
                   print('StoreCard: onTap called - $index');
                   final Map<String, dynamic>? storeJson = storesWidget!.getRawStore(index);
+                  print('StoreCard: storeJson - $storeJson');
                   OrderService().triggerStoreOrder(storeJson ?? {});
                 }
               },
@@ -242,6 +247,7 @@ class StoreCard extends StatelessWidget {
                 ],
               ),
             ),
+            ],
           ],
         ),
       ),
@@ -293,6 +299,7 @@ class _ProductPreviewTile extends StatelessWidget {
   final List<UniversalCartData>? cartData; // Cart data from getCart API
   final Function(chat.Product, chat.Store, int, bool)?
   onQuantityChanged; // Callback for quantity changes
+  final bool isFromChatHistory;
 
   const _ProductPreviewTile({
     required this.product,
@@ -302,6 +309,7 @@ class _ProductPreviewTile extends StatelessWidget {
     this.onAddToCartRequested, // Add the new parameter
     this.cartData, // Add cart data parameter
     this.onQuantityChanged, // Add quantity change callback
+    this.isFromChatHistory = false,
   });
 
   @override
@@ -417,7 +425,8 @@ class _ProductPreviewTile extends StatelessWidget {
               ),
             ],
           ),
-          if ((store.storeTypeId ?? store.type) == FoodCategory.food.value) ...[
+          if (isFromChatHistory == false) ...[
+           if ((store.storeTypeId ?? store.type) == FoodCategory.food.value) ...[
             if (store.storeIsOpen == true) ...[
               if (store.supportedOrderTypes == 4)
                 ...[]
@@ -436,6 +445,7 @@ class _ProductPreviewTile extends StatelessWidget {
                     right: 0, bottom: -4, child: _buildAddButton(context)),
               ],
             ],
+          ],
         ],
       ),
     );

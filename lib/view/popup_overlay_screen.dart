@@ -37,9 +37,8 @@ class PopupOverlayScreen extends StatelessWidget {
   Widget _buildInfoPopup(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: BoxConstraints(
+      constraints: const BoxConstraints(
         maxHeight: 580,
-        minHeight: 200,
       ),
       // margin: const EdgeInsets.only(bottom: 34),
       decoration: const BoxDecoration(
@@ -64,6 +63,7 @@ class PopupOverlayScreen extends StatelessWidget {
     final personaDesc = greetingData?.personaDesc ?? '';//'Abram is a meticulous weekly shopper who plans hisFridays around food, groceries, and pharmacydeliveries. He maintains a consistent routine, makingre lunch is ordered on time while also handlingssential groceries for his family. Abram values quickdelivery for health-related items like paracetamoland Dabber Bronco syrup, usually expecting themwithin an hour.Recently, he updated his payment details with anew card to ensure smooth and seamless checkouts.He manages multiple addresses efficiently, keepinghis mother’s grocery needs separate from his own,while reserving his home at 12, Al Ohood Street 6 forrestaurant deliveries. Abram’s behavior shows ablend of reliability, structure, and care, making hima detail- oriented user who values speed andconvenience.';//greetingData?.personaDesc ?? '';
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 5),
@@ -134,15 +134,15 @@ class PopupOverlayScreen extends StatelessWidget {
                   Navigator.of(context).pop();
                 },
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 50,
+                  height: 50,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(63.6364),
                   ),
                   child: const Icon(
                     Icons.close,
-                    size: 16,
+                    size: 25,
                     color: Color(0xFF585C77),
                   ),
                 ),
@@ -152,18 +152,9 @@ class PopupOverlayScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         // Description section with scroll
-        Expanded(
+        Flexible(
           child: SingleChildScrollView(
-            child: Text(
-              personaDesc,
-              style: const TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                height: 1.4,
-                color: Color(0xFF242424),
-              ),
-            ),
+            child: _buildPersonaDescription(personaDesc),
           ),
         ),
         const SizedBox(height: 20),
@@ -187,6 +178,80 @@ class PopupOverlayScreen extends StatelessWidget {
         ),
         const SizedBox(height: 10),
       ],
+    );
+  }
+
+  Widget _buildPersonaDescription(String personaDesc) {
+    if (personaDesc.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Split the text by lines that start with "-"
+    final lines = personaDesc.split('\n');
+    
+    // Filter out empty lines
+    final nonEmptyLines = lines.where((line) => line.trim().isNotEmpty).toList();
+    
+    // If only one line or no lines, show as normal text
+    if (nonEmptyLines.length <= 1) {
+      return Text(
+        personaDesc.trim(),
+        style: const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          height: 1.4,
+          color: Color(0xFF242424),
+        ),
+      );
+    }
+    
+    // Multiple lines - show as bullet points
+    final List<Widget> bulletPoints = [];
+    
+    for (String line in nonEmptyLines) {
+      // Remove the leading "- " if present
+      String cleanLine = line.trim();
+      if (cleanLine.startsWith('- ')) {
+        cleanLine = cleanLine.substring(2);
+      }
+      
+      bulletPoints.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 6, right: 8),
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF242424),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  cleanLine,
+                  style: const TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                    color: Color(0xFF242424),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: bulletPoints,
     );
   }
 }

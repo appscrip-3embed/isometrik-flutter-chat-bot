@@ -15,6 +15,9 @@ class SpeechService {
   bool _isPreWarmed = false;
   bool _initializationStarted = false;
 
+  /// Callback function for real-time text updates
+  Function(String)? _onTextUpdate;
+
   /// Get the current recognized text
   String get currentRecognizedText => _currentRecognizedText;
 
@@ -28,6 +31,16 @@ class SpeechService {
   bool get isPreWarmed => _isPreWarmed;
 
   String _currentRecognizedText = '';
+
+  /// Set callback for real-time text updates
+  void setOnTextUpdateCallback(Function(String) callback) {
+    _onTextUpdate = callback;
+  }
+
+  /// Clear the text update callback
+  void clearOnTextUpdateCallback() {
+    _onTextUpdate = null;
+  }
 
   /// Initialize speech to text service
   Future<bool> initialize() async {
@@ -97,85 +110,90 @@ class SpeechService {
     return true;
   }
 
-  // /// Internal method to start listening asynchronously (fire-and-forget)
-  // void _startListeningAsync() {
-  //   // Use unawaited to prevent any blocking
-  //   _speechToText
-  //       .listen(
-  //         onResult: (result) {
-  //           _currentRecognizedText = result.recognizedWords;
-  //           debugPrint('Recognized text: $_currentRecognizedText');
-  //         },
-  //         listenFor: const Duration(seconds: 60),
-  //         pauseFor: const Duration(seconds: 5),
-  //         partialResults: true,
-  //         localeId: "en_US",
-  //         listenMode: ListenMode.confirmation,
-  //       )
-  //       .catchError((error) {
-  //         debugPrint('Error during speech recognition: $error');
-  //         _isListening = false;
-  //       });
-  // }
+  /// Internal method to start listening asynchronously (fire-and-forget)
+  void _startListeningAsync() {
+    // Use unawaited to prevent any blocking
+    _speechToText
+        .listen(
+          onResult: (result) {
+            _currentRecognizedText = result.recognizedWords;
+            debugPrint('Recognized text: $_currentRecognizedText');
+            
+            // Trigger real-time text update callback
+            if (_onTextUpdate != null) {
+              _onTextUpdate!(_currentRecognizedText);
+            }
+          },
+          listenFor: const Duration(seconds: 60),
+          pauseFor: const Duration(seconds: 5),
+          partialResults: true,
+          localeId: "en_US",
+          listenMode: ListenMode.confirmation,
+        )
+        .catchError((error) {
+          debugPrint('Error during speech recognition: $error');
+          _isListening = false;
+        });
+  }
 
-  // /// Stop listening for speech input
-  // Future<void> stopListening() async {
-  //   if (_isListening) {
-  //     await _speechToText.stop();
-  //     _isListening = false;
-  //   }
-  // }
+  /// Stop listening for speech input
+  Future<void> stopListening() async {
+    if (_isListening) {
+      await _speechToText.stop();
+      _isListening = false;
+    }
+  }
 
-  // /// Cancel speech recognition
-  // Future<void> cancel() async {
-  //   if (_isListening) {
-  //     await _speechToText.cancel();
-  //     _isListening = false;
-  //   }
-  // }
+  /// Cancel speech recognition
+  Future<void> cancel() async {
+    if (_isListening) {
+      await _speechToText.cancel();
+      _isListening = false;
+    }
+  }
 
-  // /// Get available locales
-  // Future<List<LocaleName>> getAvailableLocales() async {
-  //   if (!_isAvailable) return [];
-  //   return await _speechToText.locales();
-  // }
+  /// Get available locales
+  Future<List<LocaleName>> getAvailableLocales() async {
+    if (!_isAvailable) return [];
+    return await _speechToText.locales();
+  }
 
-  // /// Check if speech recognition is supported on this device
-  // Future<bool> isSupported() async {
-  //   return await _speechToText.hasPermission;
-  // }
+  /// Check if speech recognition is supported on this device
+  Future<bool> isSupported() async {
+    return await _speechToText.hasPermission;
+  }
 
-  // /// Request microphone permission
-  // Future<bool> requestPermission() async {
-  //   return await _speechToText.initialize();
-  // }
+  /// Request microphone permission
+  Future<bool> requestPermission() async {
+    return await _speechToText.initialize();
+  }
 
-  // /// Pre-warm the speech service for instant response
-  // Future<void> _preWarmService() async {
-  //   if (_isPreWarmed) return;
+  /// Pre-warm the speech service for instant response
+  Future<void> _preWarmService() async {
+    if (_isPreWarmed) return;
 
-  //   try {
-  //     // Pre-warm by starting and immediately stopping a session
-  //     // This prepares the speech recognition engine
-  //     await _speechToText.listen(
-  //       onResult: (result) {
-  //         // Ignore results during pre-warming
-  //       },
-  //       listenFor: const Duration(milliseconds: 100),
-  //       pauseFor: const Duration(milliseconds: 50),
-  //       partialResults: true,
-  //       localeId: "en_US",
-  //       listenMode: ListenMode.confirmation,
-  //     );
+    try {
+      // Pre-warm by starting and immediately stopping a session
+      // This prepares the speech recognition engine
+      await _speechToText.listen(
+        onResult: (result) {
+          // Ignore results during pre-warming
+        },
+        listenFor: const Duration(milliseconds: 100),
+        pauseFor: const Duration(milliseconds: 50),
+        partialResults: true,
+        localeId: "en_US",
+        listenMode: ListenMode.confirmation,
+      );
 
-  //     // Immediately stop the pre-warming session
-  //     // await Future.delayed(const Duration(milliseconds: 200));
-  //     await _speechToText.stop();
+      // Immediately stop the pre-warming session
+      // await Future.delayed(const Duration(milliseconds: 200));
+      await _speechToText.stop();
 
-  //     _isPreWarmed = true;
-  //     debugPrint('Speech service pre-warmed successfully');
-  //   } catch (e) {
-  //     debugPrint('Failed to pre-warm speech service: $e');
-  //   }
-  // }
+      _isPreWarmed = true;
+      debugPrint('Speech service pre-warmed successfully');
+    } catch (e) {
+      debugPrint('Failed to pre-warm speech service: $e');
+    }
+  }
 }

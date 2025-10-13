@@ -1,3 +1,4 @@
+import 'package:chat_bot/services/callback_manage.dart';
 import 'package:chat_bot/utils/asset_path.dart';
 import 'package:flutter/material.dart';
 import 'package:chat_bot/data/model/chat_response.dart';
@@ -5,10 +6,12 @@ import 'package:flutter_svg/svg.dart' show SvgPicture;
 
 class CartWidget extends StatelessWidget {
   final List<WidgetAction> cartItems;
+  final bool isFromChatHistory;
 
   const CartWidget({
     super.key,
     required this.cartItems,
+    required this.isFromChatHistory,
   });
 
   @override
@@ -61,7 +64,7 @@ class CartWidget extends StatelessWidget {
                 color: const Color(0xFFF5F7FF),
                 borderRadius: BorderRadius.circular(8),
               ),
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.fromLTRB(10, 10, 0, 10),
               child: Row(
                 children: [
                   SvgPicture.asset(
@@ -71,9 +74,9 @@ class CartWidget extends StatelessWidget {
                         fit: BoxFit.cover,
                       ),
                   const SizedBox(width: 10),
-                  Flexible(
+                  Expanded(
                     child: Text(
-                      storeNameItem.storeName!,
+                      storeNameItem.storeName ?? '',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -85,6 +88,28 @@ class CartWidget extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // const SizedBox(width: 5),
+                  if(isFromChatHistory == false) ...[
+                  GestureDetector(
+                    onTap: () {
+                      print("storeNameItem: ${storeNameItem.toJson()}");
+                      OrderService().triggerStoreOrder(storeNameItem.toJson());
+                    },
+                    child: Container(
+                      // margin: const EdgeInsets.only(right: 15),
+                      width: 45,
+                      // height: double.infinity,
+                      // color: Colors.red,
+                      alignment: Alignment.center,
+                      child:  SvgPicture.asset(
+                        AssetPath.get('images/ic_info_cart.svg'),
+                        width: 16,
+                        height: 16,
+                        fit: BoxFit.cover,
+                      ),
+                      ),
+                    ),   
+                  ],
                 ],
               ),
             ),
