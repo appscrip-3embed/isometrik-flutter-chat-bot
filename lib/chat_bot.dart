@@ -14,6 +14,7 @@ export 'view/launch_screen.dart';
 export 'view/chat_screen.dart';
 export 'data/model/mygpts_model.dart';
 export 'services/api_service.dart';
+export 'services/speech_service.dart';
 
 class ChatBot {
   static bool isTutorialShown = false;

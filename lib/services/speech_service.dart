@@ -1,4 +1,4 @@
-import 'package:speech_to_text/speech_to_text.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter/material.dart';
 
 class SpeechService {
@@ -8,7 +8,7 @@ class SpeechService {
 
   SpeechService._internal();
 
-  final SpeechToText _speechToText = SpeechToText();
+  final stt.SpeechToText _speechToText = stt.SpeechToText();
   bool _isListening = false;
   bool _isAvailable = false;
   bool _isInitialized = false;
@@ -126,9 +126,11 @@ class SpeechService {
           },
           listenFor: const Duration(seconds: 60),
           pauseFor: const Duration(seconds: 5),
-          partialResults: true,
           localeId: "en_US",
-          listenMode: ListenMode.confirmation,
+          listenOptions: stt.SpeechListenOptions(
+            partialResults: true,
+            listenMode: stt.ListenMode.confirmation,
+          ),
         )
         .catchError((error) {
           debugPrint('Error during speech recognition: $error');
@@ -153,7 +155,7 @@ class SpeechService {
   }
 
   /// Get available locales
-  Future<List<LocaleName>> getAvailableLocales() async {
+  Future<List<stt.LocaleName>> getAvailableLocales() async {
     if (!_isAvailable) return [];
     return await _speechToText.locales();
   }
@@ -181,9 +183,11 @@ class SpeechService {
         },
         listenFor: const Duration(milliseconds: 100),
         pauseFor: const Duration(milliseconds: 50),
-        partialResults: true,
         localeId: "en_US",
-        listenMode: ListenMode.confirmation,
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          listenMode: stt.ListenMode.confirmation,
+        ),
       );
 
       // Immediately stop the pre-warming session
